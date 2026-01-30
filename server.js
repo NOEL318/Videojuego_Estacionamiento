@@ -7,24 +7,34 @@ const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
+
+// server.js
 const io = new Server(server, {
   cors: {
-    origin: "*", // En producción, usa la URL de tu Vercel
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
 
-// Estado global de las salas (en memoria para este ejemplo)
+// crear rooms
 const rooms = {};
+
+// servir html para server
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/estacionamiento.html");
+});
 
 io.on("connection", (socket) => {
   console.log(`Usuario conectado: ${socket.id}`);
 
   socket.on("join-room", ({ roomCode, playerName }) => {
-    socket.join(roomCode);
+    const room = roomCode.trim().toLowerCase();
+    socket.join(room);
 
-    if (!rooms[roomCode]) {
-      rooms[roomCode] = {
+    console.log(`Jugador ${playerName} intentando unirse a sala: ${room}`);
+
+    if (!rooms[room]) {
+      rooms[room] = {
         players: [],
         activePlayerIndex: 0,
         totals: { E: 0, Ca: 0, Co: 0, S: 0 },
@@ -32,9 +42,10 @@ io.on("connection", (socket) => {
       };
     }
 
-    // Evitar duplicados
-    const exists = rooms[roomCode].players.find((p) => p.name === playerName);
-    if (!exists) {
+    const pIdx = rooms[room].players.findIndex((p) => p.name === playerName);
+
+    if (pIdx === -1) {
+    // crear jugador
       const colors = [
         "#60a5fa",
         "#34d399",
@@ -44,29 +55,39 @@ io.on("connection", (socket) => {
         "#22c55e",
       ];
       const avatars = ["🚗", "🚙", "🚕", "🚌", "🚓", "🚘"];
-      const pIdx = rooms[roomCode].players.length;
+      const pCount = rooms[room].players.length;
 
-      rooms[roomCode].players.push({
+      rooms[room].players.push({
         id: socket.id,
         name: playerName,
         pos: 0,
-        color: colors[pIdx % colors.length],
-        avatar: avatars[pIdx % avatars.length],
+        color: colors[pCount % colors.length],
+        avatar: avatars[pCount % avatars.length],
         ev: { E: 0, Ca: 0, Co: 0, S: 0 },
       });
+      console.log(`Jugador ${playerName} CREADO en sala ${room}`);
+    } else {
+      // Solo actualizamos el socket por si refrescó la página
+      rooms[room].players[pIdx].id = socket.id;
+      console.log(`Jugador ${playerName} RECONECTADO en sala ${room}`);
     }
 
-    io.to(roomCode).emit("update-state", rooms[roomCode]);
+    // enviamos el estado actualizado a todos en la sala
+    io.to(room).emit("update-state", rooms[room]);
   });
 
   socket.on("move-player", ({ roomCode, diceValue }) => {
-    const room = rooms[roomCode];
+    const room = rooms[roomCode.trim().toLowerCase()];
     if (!room) return;
 
     const player = room.players[room.activePlayerIndex];
-    player.pos = Math.min(29, player.pos + diceValue); // 29 es la meta
+    player.pos = Math.min(29, player.pos + diceValue);
 
-    io.to(roomCode).emit("player-moved", {
+    // Emitir el estado completo para que todos vean el monito moverse
+    io.to(roomCode.trim().toLowerCase()).emit("update-state", room);
+
+    // emitir un evento específico para la animación del dado
+    io.to(roomCode.trim().toLowerCase()).emit("player-moved", {
       activePlayerIndex: room.activePlayerIndex,
       newPos: player.pos,
       diceValue,
@@ -91,7 +112,7 @@ io.on("connection", (socket) => {
       answer,
     });
 
-    // Actualizar estadísticas si es evidencia válida
+    // Actualizar estadísticas 
     if (["E", "Ca", "Co", "S"].includes(type)) {
       player.ev[type]++;
       room.totals[type]++;
