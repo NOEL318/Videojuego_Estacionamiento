@@ -3,7 +3,6 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <title>ESTACIONAMIENTO — Cupo Cero (Juego)</title>
 
     <style>
@@ -24,7 +23,7 @@
         --EV: #a78bfa;
 
         /* 🔥 tamaño mínimo de cada casilla */
-        --tileMin: 150px; /* 170–190 si quieres más grande */
+        --tileMin: 150px;
         --tileTitle: clamp(12px, 1.05vw, 15px);
         --tileNote: clamp(10px, 0.95vw, 12px);
       }
@@ -514,6 +513,12 @@
       .dot.S {
         background: var(--S);
       }
+      .dot.R {
+        background: var(--R);
+      }
+      .dot.EV {
+        background: var(--EV);
+      }
 
       /* Dice */
       .diceArea {
@@ -869,7 +874,7 @@
         </div>
         <div class="panelBody">
           <div class="pill" style="margin-bottom: 10px">
-            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0</b>
+            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0 • R0 • EV0</b>
           </div>
           <div id="playersBox"></div>
 
@@ -927,10 +932,7 @@
             </li>
             <li>
               5) Finaliza y exporta 📎
-              <small
-                >Al cumplir la meta (E/Ca/Co/S) abre el reporte: CSV/JSON/TXT o
-                “Bloc de notas”.</small
-              >
+              <small>Abre el reporte: CSV/JSON/TXT o “Bloc de notas”.</small>
             </li>
           </ul>
 
@@ -1117,7 +1119,7 @@
     </div>
 
     <div id="toast"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
     <script>
       // ===== Board data =====
       const tiles = [
@@ -1335,7 +1337,9 @@
       let active = 0;
       let currentCard = null;
       let currentTileIndex = 0;
-      const totals = { E: 0, Ca: 0, Co: 0, S: 0 };
+
+      // ✅ AHORA totales también incluyen R y EV
+      const totals = { E: 0, Ca: 0, Co: 0, S: 0, R: 0, EV: 0 };
 
       // ===== Bitácora capturable =====
       let bitacoraLog = [];
@@ -1419,11 +1423,15 @@
           </div>
           <button class="btn" onclick="setActive(${i})">Jugar como</button>
         </div>
+
+        <!-- ✅ AHORA también muestra R y EV -->
         <div class="chips">
           <span class="chip"><span class="dot E"></span> E: <b>${p.ev.E}</b></span>
           <span class="chip"><span class="dot Ca"></span> Ca: <b>${p.ev.Ca}</b></span>
           <span class="chip"><span class="dot Co"></span> Co: <b>${p.ev.Co}</b></span>
           <span class="chip"><span class="dot S"></span> S: <b>${p.ev.S}</b></span>
+          <span class="chip"><span class="dot R"></span> R: <b>${p.ev.R}</b></span>
+          <span class="chip"><span class="dot EV"></span> EV: <b>${p.ev.EV}</b></span>
         </div>
       `;
           box.appendChild(div);
@@ -1434,7 +1442,7 @@
 
       function renderTotals() {
         document.getElementById("totalsText").textContent =
-          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`;
+          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`;
       }
 
       function renderActiveInfo() {
@@ -1449,7 +1457,9 @@
       function startGame() {
         players = [];
         active = 0;
-        totals.E = totals.Ca = totals.Co = totals.S = 0;
+
+        // ✅ reinicio completo
+        totals.E = totals.Ca = totals.Co = totals.S = totals.R = totals.EV = 0;
         bitacoraLog = [];
 
         const names = ["J1", "J2", "J3"];
@@ -1459,7 +1469,9 @@
             pos: 0,
             color: colors[i],
             avatar: avatars[i],
-            ev: { E: 0, Ca: 0, Co: 0, S: 0 },
+
+            // ✅ AHORA también existe R y EV por jugador
+            ev: { E: 0, Ca: 0, Co: 0, S: 0, R: 0, EV: 0 },
           });
         }
 
@@ -1528,13 +1540,10 @@
         const cb = document.getElementById("dontShowAgain");
         if (cb?.checked) localStorage.setItem("cc_noshow_intro", "1");
         closeIntro();
-
-        // Si no hay jugadores, iniciamos el proceso de red
-        if (!players.length) {
-          joinGame();
-        }
-        toast("Conectando al servidor... 🚀");
+        if (!players.length) startGame();
+        toast("A jugar 😈");
       }
+
       // ===== Modal (card) =====
       function openCard(card, tileIdx) {
         currentCard = card;
@@ -1572,7 +1581,8 @@
         const t = currentCard.type;
         const text = (document.getElementById("bitacora").value || "").trim();
 
-        if (["E", "Ca", "Co", "S"].includes(t) && text.length < 15) {
+        // ✅ ahora también pedimos mínimo para R y EV
+        if (["E", "Ca", "Co", "S", "R", "EV"].includes(t) && text.length < 15) {
           return toast(
             "Escribe un poquito más (mín 15 chars) para que cuente 🙏",
           );
@@ -1588,21 +1598,23 @@
           followups: currentCard.followups,
         });
 
-        if (["E", "Ca", "Co", "S"].includes(t)) {
+        // ✅ FIX CLAVE: ahora sí incrementa R y EV
+        if (["E", "Ca", "Co", "S", "R"].includes(t)) {
           p.ev[t] += 1;
           totals[t] += 1;
-          toast(`Evidencia ${t} registrada ✅`);
+          toast(`Respuesta ${t} registrada ✅`);
         } else if (t === "EV") {
+          p.ev.EV += 1;
+          totals.EV += 1;
+
           const r = Math.random();
           if (r < 0.5) {
             p.pos = Math.max(0, p.pos - 2);
-            toast("Evento: caos → retrocedes 2 😭");
+            toast("Evento: caos → retrocedes 2 😭 (EV registrada ✅)");
           } else {
             p.pos = Math.min(tiles.length - 1, p.pos + 2);
-            toast("Evento: flujo raro → avanzas 2 😈");
+            toast("Evento: flujo raro → avanzas 2 😈 (EV registrada ✅)");
           }
-        } else {
-          toast("Rol aplicado 🎭 (si tuvo datos, ya quedó en bitácora)");
         }
 
         closeModal();
@@ -1614,11 +1626,7 @@
 
         if (checkGoalMet()) {
           toast("Meta lograda ✅ Abriendo reporte final...");
-          setTimeout(() => {
-            openReport(true);
-            // Si quieres auto-descarga del TXT al terminar, descomenta:
-            // downloadTXT();
-          }, 350);
+          setTimeout(() => openReport(true), 350);
         }
       }
 
@@ -1666,6 +1674,7 @@ ${document.getElementById("bitacora").value}
         });
       }
 
+      // ✅ meta solo para E/Ca/Co/S (como antes)
       function checkGoalMet() {
         return (
           totals.E >= GOAL.E &&
@@ -1698,14 +1707,16 @@ ${document.getElementById("bitacora").value}
           Ca: p.ev.Ca,
           Co: p.ev.Co,
           S: p.ev.S,
+          R: p.ev.R,
+          EV: p.ev.EV,
         }));
 
         const goalStatus = `Meta global: E${totals.E}/${GOAL.E}, Ca${totals.Ca}/${GOAL.Ca}, Co${totals.Co}/${GOAL.Co}, S${totals.S}/${GOAL.S}`;
 
         const summaryLines = [
-          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`,
+          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`,
           `<b>${goalStatus}</b>`,
-          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S})`).join(" • ")}`,
+          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S},R${x.R},EV${x.EV})`).join(" • ")}`,
           `<b>Registros capturados:</b> ${bitacoraLog.length}`,
           `<b>Tip:</b> CSV = lo más fácil para anexar al entregable.`,
         ];
@@ -1821,7 +1832,7 @@ ${document.getElementById("bitacora").value}
         const lines = [];
         lines.push("ESTACIONAMIENTO — Cupo Cero | Bitácora (export)");
         lines.push(
-          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S}`,
+          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S} R${totals.R} EV${totals.EV}`,
         );
         lines.push(`Meta: E${GOAL.E} Ca${GOAL.Ca} Co${GOAL.Co} S${GOAL.S}`);
         lines.push(`Registros: ${bitacoraLog.length}`);
@@ -1840,7 +1851,10 @@ ${document.getElementById("bitacora").value}
       function downloadTXT() {
         if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
         downloadFile(
-          "bitacora-estacionamiento-cupo-cero.txt",
+          "bitacora-estacionamiento-cupo-cupo-cero.txt".replace(
+            "cupo-cupo",
+            "cupo",
+          ),
           buildTXTString(),
         );
       }
@@ -1857,8 +1871,6 @@ ${document.getElementById("bitacora").value}
         if (!players.length) return toast("Primero presiona Empezar 🚀");
         toast("Cerrando sesión… abriendo reporte ✅");
         openReport(true);
-        // Si quieres auto-descargar TXT al finalizar, descomenta:
-        // setTimeout(()=> downloadTXT(), 250);
       }
 
       // ===== Notepad modal =====
@@ -1900,7 +1912,7 @@ ${document.getElementById("bitacora").value}
         toastTimer = setTimeout(() => (el.style.opacity = "0"), 1600);
       }
 
-      // boot: render tablero vacío + mostrar intro (si no se desactivó)
+      // boot
       renderBoard();
       renderPlayers();
 
@@ -1909,54 +1921,6 @@ ${document.getElementById("bitacora").value}
         if (!noShow) openIntro();
         else toast("Listo. Usa 'Reiniciar' si quieres iniciar jugadores ✅");
       })();
-
-      // Multiplayer
-
-      // Configuración de Red
-      const socket = io("https://videojuegoestacionamiento-production.up.railway.app/"); 
-      let roomCode = "";
-      let myPlayerName = "";
-
-      // Función para unirse
-      function joinGame() {
-        // Pedimos los datos al usuario
-        const room = prompt("Ingresa el CÓDIGO DE SALA");
-        const name = prompt("Tu NOMBRE de jugador:");
-
-        if (room && name) {
-          roomCode = room.trim().toLowerCase();
-          myPlayerName = name.trim();
-
-          // Enviamos el evento al servidor
-          socket.emit("join-room", {
-            roomCode: roomCode,
-            playerName: myPlayerName,
-          });
-
-          // Feedback visual en la UI
-          document.querySelector(".brand .sub").innerHTML =
-            `SALA: <b>${roomCode.toUpperCase()}</b> | Jugando como: <b>${myPlayerName}</b>`;
-        } else {
-          alert("Se requiere sala y nombre para jugar en tiempo real.");
-          openIntro(); // Reabrir si cancela
-        }
-      }
-
-      // Escuchar actualizaciones del servidor
-      socket.on("update-state", (state) => {
-        console.log("Nuevo estado recibido:", state);
-
-        // Sincronizar variables locales con el servidor
-        players = state.players;
-        active = state.activePlayerIndex;
-        Object.assign(totals, state.totals);
-        bitacoraLog = state.bitacoraLog;
-
-        // Forzar redibujado de la UI
-        renderBoard();
-        renderPlayers();
-        renderTotals();
-      });
 
       socket.on("player-moved", ({ activePlayerIndex, newPos, diceValue }) => {
         const dice = document.getElementById("diceBox");
