@@ -1922,6 +1922,56 @@ ${document.getElementById("bitacora").value}
         else toast("Listo. Usa 'Reiniciar' si quieres iniciar jugadores ✅");
       })();
 
+      // Multiplayer
+
+      // Configuración de Red
+      const socket = io(
+        "https://videojuegoestacionamiento-production.up.railway.app/",
+      );
+      let roomCode = "";
+      let myPlayerName = "";
+
+      // Función para unirse
+      function joinGame() {
+        // Pedimos los datos al usuario
+        const room = prompt("Ingresa el CÓDIGO DE SALA");
+        const name = prompt("Tu NOMBRE de jugador:");
+
+        if (room && name) {
+          roomCode = room.trim().toLowerCase();
+          myPlayerName = name.trim();
+
+          // Enviamos el evento al servidor
+          socket.emit("join-room", {
+            roomCode: roomCode,
+            playerName: myPlayerName,
+          });
+
+          // Feedback visual en la UI
+          document.querySelector(".brand .sub").innerHTML =
+            `SALA: <b>${roomCode.toUpperCase()}</b> | Jugando como: <b>${myPlayerName}</b>`;
+        } else {
+          alert("Se requiere sala y nombre para jugar en tiempo real.");
+          openIntro(); // Reabrir si cancela
+        }
+      }
+
+      // Escuchar actualizaciones del servidor
+      socket.on("update-state", (state) => {
+        console.log("Nuevo estado recibido:", state);
+
+        // Sincronizar variables locales con el servidor
+        players = state.players;
+        active = state.activePlayerIndex;
+        Object.assign(totals, state.totals);
+        bitacoraLog = state.bitacoraLog;
+
+        // Forzar redibujado de la UI
+        renderBoard();
+        renderPlayers();
+        renderTotals();
+      });
+
       socket.on("player-moved", ({ activePlayerIndex, newPos, diceValue }) => {
         const dice = document.getElementById("diceBox");
         dice.textContent = diceValue;
