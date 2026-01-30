@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <title>ESTACIONAMIENTO — Cupo Cero (Juego)</title>
 
     <style>
@@ -23,7 +24,7 @@
         --EV: #a78bfa;
 
         /* 🔥 tamaño mínimo de cada casilla */
-        --tileMin: 150px;
+        --tileMin: 150px; /* 170–190 si quieres más grande */
         --tileTitle: clamp(12px, 1.05vw, 15px);
         --tileNote: clamp(10px, 0.95vw, 12px);
       }
@@ -513,12 +514,6 @@
       .dot.S {
         background: var(--S);
       }
-      .dot.R {
-        background: var(--R);
-      }
-      .dot.EV {
-        background: var(--EV);
-      }
 
       /* Dice */
       .diceArea {
@@ -874,7 +869,7 @@
         </div>
         <div class="panelBody">
           <div class="pill" style="margin-bottom: 10px">
-            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0 • R0 • EV0</b>
+            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0</b>
           </div>
           <div id="playersBox"></div>
 
@@ -932,7 +927,10 @@
             </li>
             <li>
               5) Finaliza y exporta 📎
-              <small>Abre el reporte: CSV/JSON/TXT o “Bloc de notas”.</small>
+              <small
+                >Al cumplir la meta (E/Ca/Co/S) abre el reporte: CSV/JSON/TXT o
+                “Bloc de notas”.</small
+              >
             </li>
           </ul>
 
@@ -1119,7 +1117,7 @@
     </div>
 
     <div id="toast"></div>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <script>
       // ===== Board data =====
       const tiles = [
@@ -1337,9 +1335,7 @@
       let active = 0;
       let currentCard = null;
       let currentTileIndex = 0;
-
-      // ✅ AHORA totales también incluyen R y EV
-      const totals = { E: 0, Ca: 0, Co: 0, S: 0, R: 0, EV: 0 };
+      const totals = { E: 0, Ca: 0, Co: 0, S: 0 };
 
       // ===== Bitácora capturable =====
       let bitacoraLog = [];
@@ -1423,15 +1419,11 @@
           </div>
           <button class="btn" onclick="setActive(${i})">Jugar como</button>
         </div>
-
-        <!-- ✅ AHORA también muestra R y EV -->
         <div class="chips">
           <span class="chip"><span class="dot E"></span> E: <b>${p.ev.E}</b></span>
           <span class="chip"><span class="dot Ca"></span> Ca: <b>${p.ev.Ca}</b></span>
           <span class="chip"><span class="dot Co"></span> Co: <b>${p.ev.Co}</b></span>
           <span class="chip"><span class="dot S"></span> S: <b>${p.ev.S}</b></span>
-          <span class="chip"><span class="dot R"></span> R: <b>${p.ev.R}</b></span>
-          <span class="chip"><span class="dot EV"></span> EV: <b>${p.ev.EV}</b></span>
         </div>
       `;
           box.appendChild(div);
@@ -1442,7 +1434,7 @@
 
       function renderTotals() {
         document.getElementById("totalsText").textContent =
-          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`;
+          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`;
       }
 
       function renderActiveInfo() {
@@ -1457,9 +1449,7 @@
       function startGame() {
         players = [];
         active = 0;
-
-        // ✅ reinicio completo
-        totals.E = totals.Ca = totals.Co = totals.S = totals.R = totals.EV = 0;
+        totals.E = totals.Ca = totals.Co = totals.S = 0;
         bitacoraLog = [];
 
         const names = ["J1", "J2", "J3"];
@@ -1469,9 +1459,7 @@
             pos: 0,
             color: colors[i],
             avatar: avatars[i],
-
-            // ✅ AHORA también existe R y EV por jugador
-            ev: { E: 0, Ca: 0, Co: 0, S: 0, R: 0, EV: 0 },
+            ev: { E: 0, Ca: 0, Co: 0, S: 0 },
           });
         }
 
@@ -1540,10 +1528,13 @@
         const cb = document.getElementById("dontShowAgain");
         if (cb?.checked) localStorage.setItem("cc_noshow_intro", "1");
         closeIntro();
-        if (!players.length) startGame();
-        toast("A jugar 😈");
-      }
 
+        // Si no hay jugadores, iniciamos el proceso de red
+        if (!players.length) {
+          joinGame();
+        }
+        toast("Conectando al servidor... 🚀");
+      }
       // ===== Modal (card) =====
       function openCard(card, tileIdx) {
         currentCard = card;
@@ -1581,8 +1572,7 @@
         const t = currentCard.type;
         const text = (document.getElementById("bitacora").value || "").trim();
 
-        // ✅ ahora también pedimos mínimo para R y EV
-        if (["E", "Ca", "Co", "S", "R", "EV"].includes(t) && text.length < 15) {
+        if (["E", "Ca", "Co", "S"].includes(t) && text.length < 15) {
           return toast(
             "Escribe un poquito más (mín 15 chars) para que cuente 🙏",
           );
@@ -1598,23 +1588,21 @@
           followups: currentCard.followups,
         });
 
-        // ✅ FIX CLAVE: ahora sí incrementa R y EV
-        if (["E", "Ca", "Co", "S", "R"].includes(t)) {
+        if (["E", "Ca", "Co", "S"].includes(t)) {
           p.ev[t] += 1;
           totals[t] += 1;
-          toast(`Respuesta ${t} registrada ✅`);
+          toast(`Evidencia ${t} registrada ✅`);
         } else if (t === "EV") {
-          p.ev.EV += 1;
-          totals.EV += 1;
-
           const r = Math.random();
           if (r < 0.5) {
             p.pos = Math.max(0, p.pos - 2);
-            toast("Evento: caos → retrocedes 2 😭 (EV registrada ✅)");
+            toast("Evento: caos → retrocedes 2 😭");
           } else {
             p.pos = Math.min(tiles.length - 1, p.pos + 2);
-            toast("Evento: flujo raro → avanzas 2 😈 (EV registrada ✅)");
+            toast("Evento: flujo raro → avanzas 2 😈");
           }
+        } else {
+          toast("Rol aplicado 🎭 (si tuvo datos, ya quedó en bitácora)");
         }
 
         closeModal();
@@ -1626,7 +1614,11 @@
 
         if (checkGoalMet()) {
           toast("Meta lograda ✅ Abriendo reporte final...");
-          setTimeout(() => openReport(true), 350);
+          setTimeout(() => {
+            openReport(true);
+            // Si quieres auto-descarga del TXT al terminar, descomenta:
+            // downloadTXT();
+          }, 350);
         }
       }
 
@@ -1674,7 +1666,6 @@ ${document.getElementById("bitacora").value}
         });
       }
 
-      // ✅ meta solo para E/Ca/Co/S (como antes)
       function checkGoalMet() {
         return (
           totals.E >= GOAL.E &&
@@ -1707,16 +1698,14 @@ ${document.getElementById("bitacora").value}
           Ca: p.ev.Ca,
           Co: p.ev.Co,
           S: p.ev.S,
-          R: p.ev.R,
-          EV: p.ev.EV,
         }));
 
         const goalStatus = `Meta global: E${totals.E}/${GOAL.E}, Ca${totals.Ca}/${GOAL.Ca}, Co${totals.Co}/${GOAL.Co}, S${totals.S}/${GOAL.S}`;
 
         const summaryLines = [
-          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`,
+          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`,
           `<b>${goalStatus}</b>`,
-          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S},R${x.R},EV${x.EV})`).join(" • ")}`,
+          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S})`).join(" • ")}`,
           `<b>Registros capturados:</b> ${bitacoraLog.length}`,
           `<b>Tip:</b> CSV = lo más fácil para anexar al entregable.`,
         ];
@@ -1832,7 +1821,7 @@ ${document.getElementById("bitacora").value}
         const lines = [];
         lines.push("ESTACIONAMIENTO — Cupo Cero | Bitácora (export)");
         lines.push(
-          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S} R${totals.R} EV${totals.EV}`,
+          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S}`,
         );
         lines.push(`Meta: E${GOAL.E} Ca${GOAL.Ca} Co${GOAL.Co} S${GOAL.S}`);
         lines.push(`Registros: ${bitacoraLog.length}`);
@@ -1851,10 +1840,7 @@ ${document.getElementById("bitacora").value}
       function downloadTXT() {
         if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
         downloadFile(
-          "bitacora-estacionamiento-cupo-cupo-cero.txt".replace(
-            "cupo-cupo",
-            "cupo",
-          ),
+          "bitacora-estacionamiento-cupo-cero.txt",
           buildTXTString(),
         );
       }
@@ -1871,6 +1857,8 @@ ${document.getElementById("bitacora").value}
         if (!players.length) return toast("Primero presiona Empezar 🚀");
         toast("Cerrando sesión… abriendo reporte ✅");
         openReport(true);
+        // Si quieres auto-descargar TXT al finalizar, descomenta:
+        // setTimeout(()=> downloadTXT(), 250);
       }
 
       // ===== Notepad modal =====
@@ -1912,7 +1900,7 @@ ${document.getElementById("bitacora").value}
         toastTimer = setTimeout(() => (el.style.opacity = "0"), 1600);
       }
 
-      // boot
+      // boot: render tablero vacío + mostrar intro (si no se desactivó)
       renderBoard();
       renderPlayers();
 
@@ -1925,9 +1913,7 @@ ${document.getElementById("bitacora").value}
       // Multiplayer
 
       // Configuración de Red
-      const socket = io(
-        "https://videojuegoestacionamiento-production.up.railway.app/",
-      );
+      const socket = io("https://videojuegoestacionamiento-production.up.railway.app/"); 
       let roomCode = "";
       let myPlayerName = "";
 
