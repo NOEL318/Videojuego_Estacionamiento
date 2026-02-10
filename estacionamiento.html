@@ -514,6 +514,12 @@
       .dot.S {
         background: var(--S);
       }
+      .dot.R {
+        background: var(--R); 
+      }
+      .dot.EV {
+         background: var(--EV);
+      }
 
       /* Dice */
       .diceArea {
@@ -869,7 +875,7 @@
         </div>
         <div class="panelBody">
           <div class="pill" style="margin-bottom: 10px">
-            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0</b>
+            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0 • R0 • EV0</b>
           </div>
           <div id="playersBox"></div>
 
@@ -1165,86 +1171,86 @@
       };
 
       // ===== Goals =====
-      const GOAL = { E: 3, Ca: 3, Co: 3, S: 3 };
+      const GOAL = { E: 3, Ca: 3, Co: 3, S: 3, R: 3, EC: 3 };
 
       // ===== Decks =====
       const decks = {
         E: [
           C(
             "E",
-            "🎯 Cuenta un caso real en hora pico (dónde/cuándo/impacto).",
-            "Mientras más específico, más sirve para validar.",
-            "¿Qué zona? ¿Qué hora? ¿Qué hiciste al final?",
+            "🎯 Describe una experiencia REAL reciente buscando estacionamiento.",
+            "Debe ser algo que te haya pasado a ti, no algo que 'suele pasar'.",
+            "¿Qué día fue? ¿A qué hora? ¿En qué zona exacta? ¿Cuánto tiempo perdiste?",
           ),
           C(
             "E",
-            "😵 Tu peor experiencia con estacionamiento: storytime.",
-            "No hay pena: aquí queremos evidencia.",
-            "¿Qué lo detonó? ¿Qué consecuencia tuvo?",
+            "😵 Piensa en la experiencia más frustrante que recuerdes.",
+            "Entre más específica sea, más valor tiene como evidencia.",
+            "¿Qué estabas intentando hacer? ¿Qué decisión tomaste al final?",
           ),
           C(
             "E",
-            "🔁 Tu ruta cuando no hay lugar: paso 1, 2, 3…",
-            "Sirve para detectar embudos.",
-            "¿En qué punto se atora? ¿Cuánto tardas?",
+            "🔁 Explica tu recorrido típico cuando no encuentras lugar.",
+            "Cuéntalo como si fuera un mapa narrado.",
+            "¿Por dónde entras? ¿Cuántas vueltas das? ¿Dónde decides rendirte?",
           ),
           C(
             "E",
-            "🚶 ¿Has visto riesgo para peatones? narra uno.",
-            "Valida consecuencias reales.",
-            "¿Dónde fue? ¿Por qué pasó?",
+            "🚶 Relata una situación donde peatones y autos casi chocan.",
+            "No tiene que haber accidente, basta con riesgo real.",
+            "¿Quién estaba involucrado? ¿Qué maniobra fue peligrosa?",
           ),
         ],
         Ca: [
           C(
             "Ca",
-            "🧩 Elige 1 causa raíz del caos y defiéndela con ejemplo.",
-            "No te vayas abstracto.",
-            "¿Cupo? ¿hábitos? ¿horarios? ¿señalización?",
+            "🧩  Identifica UNA causa principal del problema y justifícala con un ejemplo.",
+            "Evita respuestas generales como 'falta de organización'.",
+            "¿Qué acción concreta genera el problema? ¿Quién la realiza?",
           ),
           C(
             "Ca",
-            "😬 ¿Qué tan culpable es la doble fila?",
-            "Causa súper repetida.",
-            "¿Dónde pasa más? ¿por qué lo hacen?",
+            "😬 Analiza la doble fila: ¿por qué ocurre realmente?",
+            "No solo digas que está mal, explica el motivo.",
+            "¿Es prisa? ¿comodidad? ¿falta de control? ¿en qué zonas pasa más?",
           ),
           C(
             "Ca",
-            "🪧 Señalización: ¿ayuda o estorba?",
-            "Quick win barato.",
-            "¿Qué señal falta? ¿qué confusión se repite?",
+            "🪧 Evalúa la señalización actual del estacionamiento.",
+            "Piensa como alguien que no conoce el campus.",
+            "¿Qué información no está clara? ¿Dónde debería estar visible?",
           ),
           C(
             "Ca",
-            "🕗 Horarios: ¿los picos de clases generan el desastre?",
-            "Esto sirve para proponer gestión en picos.",
-            "¿Qué bloque es peor y por qué?",
+            "🕗 Cómo influyen los horarios de clases en el colapso?",
+            "Relaciona tiempos académicos con flujo vehicular.",
+            "¿Qué bloque horario es el peor y por qué?",
           ),
         ],
         Co: [
           C(
             "Co",
-            "📚 Impacto académico: ¿qué pierdes por tardar 15–20 min?",
-            "Consecuencia tangible.",
-            "¿Asistencia? ¿participación? ¿examen?",
+            "📚 ¿Cómo afecta el estacionamiento a tu desempeño académico?",
+            "Busca una consecuencia concreta, no emocional solamente.",
+            "¿Has llegado tarde? ¿Te has ido antes? ¿Perdiste algo evaluable?",
           ),
           C(
             "Co",
-            "🧠 Bienestar: ¿qué emociones te dispara?",
-            "Estrés también es dato.",
-            "¿Te cambia el ánimo? ¿te drena?",
+            "🧠 Describe el impacto emocional del problema.",
+            "Las emociones también son datos.",
+            "¿Estrés, enojo, ansiedad? ¿Te afecta antes de entrar a clase?",
           ),
           C(
             "Co",
-            "⚠️ Riesgo vial: casi-accidente o maniobra peligrosa.",
-            "Evidencia dura.",
-            "¿Dónde? ¿qué lo causó?",
+            "⚠️ Cuenta una situación de riesgo vial real.",
+            "Evita 'podría pasar', enfócate en algo que ya pasó.",
+            "¿Qué maniobra fue peligrosa? ¿Por qué ocurrió?",
           ),
           C(
             "Co",
-            "💥 Conflicto social por cajón: cuenta un caso.",
-            "Costo social.",
-            "¿Qué lo detonó? ¿qué lo evitaba?",
+            "💥 Narra un conflicto entre personas por un cajón.",
+            "Conflictos sociales también cuentan como impacto.",
+            "¿Hubo discusión? ¿Miradas? ¿claxon? ¿qué lo provocó?",
           ),
         ],
         S: [
@@ -1256,73 +1262,73 @@
           ),
           C(
             "S",
-            "🏗️ Solución cara (infra): ¿qué construirías/reordenarías?",
-            "Costo/beneficio.",
-            "¿A quién ayuda? ¿qué riesgo tiene?",
+            "🏗️ Imagina una solución de infraestructura.",
+            "Piensa en costo vs beneficio.",
+            "¿Qué problema ataca? ¿A quién ayuda más?",
           ),
           C(
             "S",
-            "🗺️ Comunicación: ¿qué info le falta a la gente?",
-            "A veces el caos es desorientación.",
-            "¿Mapa? ¿avisos? ¿señales?",
+            "🗺️ ¿Qué información falta para que la gente se estacione mejor?",
+            "A veces el problema no es espacio, sino desinformación.",
+            "¿Mapa? ¿pantalla? ¿señales temporales?",
           ),
           C(
             "S",
-            "🛡️ Protocolo hora pico: ¿qué haría seguridad EXACTO?",
-            "Pasos claros.",
-            "¿En qué puntos? ¿qué decisiones toman?",
+            "🛡️  Diseña un protocolo claro para horas pico.",
+            "Paso por paso, sin generalidades.",
+            "¿Quién actúa? ¿Dónde se coloca? ¿qué decide?",
           ),
         ],
         R: [
           C(
             "R",
             "🎭 Perspectiva: eres SEGURIDAD. ¿Qué es lo más difícil de controlar?",
-            "Perspectiva = datos nuevos.",
-            "¿Qué regla te hace falta? ¿qué te piden imposible?",
+            "Habla desde la limitación, no desde la crítica.",
+            "¿Qué reglas no puedes hacer cumplir? ¿por qué?",
           ),
           C(
             "R",
-            "🎭 Perspectiva: eres PEATÓN. ¿Qué es lo peor/peligroso?",
-            "Peatón siempre sufre.",
-            "¿Dónde te sientes inseguro?",
+            "🎭 Eres un PEATÓN. ¿Dónde te sientes más vulnerable?",
+            "Piensa en cruces, banquetas y visibilidad.",
+            "¿Qué auto te pone más en riesgo?",
           ),
           C(
             "R",
-            "🎭 Perspectiva: eres DOCENTE. ¿Cómo afecta el caos?",
-            "Impacto en dinámica de clase.",
-            "¿Qué medida apoyarías?",
+            "🎭  Eres DOCENTE. ¿Cómo afecta esto a tu clase?",
+            "Piensa en puntualidad y dinámica.",
+            "¿Qué medida apoyarías aunque incomode?",
           ),
           C(
             "R",
-            "🎭 Perspectiva: eres VISITANTE. ¿Qué confunde?",
-            "Validación de señalización.",
-            "¿Qué señal te salvaría?",
+            "🎭  Eres VISITANTE. ¿Qué fue lo más confuso?",
+            "Actúa como si fuera tu primera vez.",
+            "¿Qué señal o info te habría ahorrado tiempo?",
           ),
         ],
         EV: [
           C(
             "EV",
-            "🌧️ Evento: llueve + hay examen. ¿Qué cambia?",
-            "Describe el caos.",
-            "¿Qué medida temporal aplicarías?",
+            "🌧️ Evento: Llueve y hay examen. Describe cómo cambia el flujo.",
+            "Piensa en autos, peatones y estrés.",
+            "¿Qué medida temporal aplicarías hoy mismo?",
           ),
           C(
             "EV",
-            "🚫 Evento: cierre parcial de una zona.",
-            "Redistribución de demanda.",
-            "¿Qué embudo se crea? ¿cómo lo anuncias?",
+            "🚫 Evento: Se cierra una zona del estacionamiento.",
+            "Analiza redistribución del problema.",
+            "¿Dónde se forma el nuevo embudo?",
           ),
           C(
             "EV",
-            "🎉 Evento: evento masivo en campus.",
-            "Plan especial.",
-            "¿Qué rutas separas? ¿área contingencia?",
+            "🎉 Evento: Hay evento masivo en campus.",
+            "Separar flujos es clave.",
+            "¿Qué rutas asignarías? ¿Dónde mandarías visitantes?",
           ),
           C(
             "EV",
-            "📜 Evento: nuevos cajones reservados.",
-            "Justicia percibida.",
-            "¿Aumenta conflicto? ¿cómo hacerlo justo?",
+            "📜 Evento: Se agregan cajones reservados.",
+            "Evalúa percepción de justicia.",
+            "¿Genera más conflicto? ¿cómo lo comunicarías?",
           ),
         ],
       };
@@ -1424,6 +1430,8 @@
           <span class="chip"><span class="dot Ca"></span> Ca: <b>${p.ev.Ca}</b></span>
           <span class="chip"><span class="dot Co"></span> Co: <b>${p.ev.Co}</b></span>
           <span class="chip"><span class="dot S"></span> S: <b>${p.ev.S}</b></span>
+          <span class="chip"><span class="dot S"></span> R: <b>${p.ev.R}</b></span>
+          <span class="chip"><span class="dot S"></span> EV: <b>${p.ev.EV}</b></span>
         </div>
       `;
           box.appendChild(div);
@@ -1434,7 +1442,7 @@
 
       function renderTotals() {
         document.getElementById("totalsText").textContent =
-          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`;
+          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`;
       }
 
       function renderActiveInfo() {
@@ -1449,7 +1457,7 @@
       function startGame() {
         players = [];
         active = 0;
-        totals.E = totals.Ca = totals.Co = totals.S = 0;
+        totals.E = totals.Ca = totals.Co = totals.S = totals.R = totals.EV = 0;
         bitacoraLog = [];
 
         const names = ["J1", "J2", "J3"];
@@ -1459,7 +1467,7 @@
             pos: 0,
             color: colors[i],
             avatar: avatars[i],
-            ev: { E: 0, Ca: 0, Co: 0, S: 0 },
+            ev: { E: 0, Ca: 0, Co: 0, S: 0, R:0, EV: 0 },
           });
         }
 
@@ -1572,7 +1580,7 @@
         const t = currentCard.type;
         const text = (document.getElementById("bitacora").value || "").trim();
 
-        if (["E", "Ca", "Co", "S"].includes(t) && text.length < 15) {
+        if (["E", "Ca", "Co", "S", "R", "EV" ].includes(t) && text.length < 15) {
           return toast(
             "Escribe un poquito más (mín 15 chars) para que cuente 🙏",
           );
@@ -1588,7 +1596,7 @@
           followups: currentCard.followups,
         });
 
-        if (["E", "Ca", "Co", "S"].includes(t)) {
+        if (["E", "Ca", "Co", "S", "R", "EV"].includes(t)) {
           p.ev[t] += 1;
           totals[t] += 1;
           toast(`Evidencia ${t} registrada ✅`);
@@ -1671,7 +1679,9 @@ ${document.getElementById("bitacora").value}
           totals.E >= GOAL.E &&
           totals.Ca >= GOAL.Ca &&
           totals.Co >= GOAL.Co &&
-          totals.S >= GOAL.S
+          totals.S >= GOAL.S &&
+          totals.R >= GOAL.R &&
+          totals.EV >= GOAL.EV
         );
       }
 
@@ -1698,14 +1708,16 @@ ${document.getElementById("bitacora").value}
           Ca: p.ev.Ca,
           Co: p.ev.Co,
           S: p.ev.S,
+          R: p.ev.R,
+          EV: p.ev.EV,
         }));
 
-        const goalStatus = `Meta global: E${totals.E}/${GOAL.E}, Ca${totals.Ca}/${GOAL.Ca}, Co${totals.Co}/${GOAL.Co}, S${totals.S}/${GOAL.S}`;
+        const goalStatus = `Meta global: E${totals.E}/${GOAL.E}, Ca${totals.Ca}/${GOAL.Ca}, Co${totals.Co}/${GOAL.Co}, S${totals.S}/${GOAL.S}, R${totals.R}/${GOAL.R}, EV${totals.EV}/${GOAL.EV}`;
 
         const summaryLines = [
-          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S}`,
+          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`,
           `<b>${goalStatus}</b>`,
-          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S})`).join(" • ")}`,
+          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S},R${x.R},EV${x.EV})`).join(" • ")}`,
           `<b>Registros capturados:</b> ${bitacoraLog.length}`,
           `<b>Tip:</b> CSV = lo más fácil para anexar al entregable.`,
         ];
@@ -1821,9 +1833,9 @@ ${document.getElementById("bitacora").value}
         const lines = [];
         lines.push("ESTACIONAMIENTO — Cupo Cero | Bitácora (export)");
         lines.push(
-          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S}`,
+          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S} R${totals.R} EV${totals.EV}`,
         );
-        lines.push(`Meta: E${GOAL.E} Ca${GOAL.Ca} Co${GOAL.Co} S${GOAL.S}`);
+        lines.push(`Meta: E${GOAL.E} Ca${GOAL.Ca} Co${GOAL.Co} S${GOAL.S} R${GOAL.R} EV${GOAL.EV}`);
         lines.push(`Registros: ${bitacoraLog.length}`);
         lines.push("--------------------------------------------------");
         bitacoraLog.forEach((r) => {
