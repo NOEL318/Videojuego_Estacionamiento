@@ -1,0 +1,2010 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>ESTACIONAMIENTO — Cupo Cero (Juego)</title>
+
+    <style>
+      :root {
+        --bg: #070913;
+        --bg2: #0b1020;
+        --ink: #eaf0ff;
+        --muted: rgba(234, 240, 255, 0.72);
+        --line: rgba(255, 255, 255, 0.14);
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+        --radius: 18px;
+
+        --E: #66b3ff;
+        --Ca: #48ff9a;
+        --Co: #ffd166;
+        --S: #b388ff;
+        --R: #ff7aa2;
+        --EV: #a78bfa;
+
+        /* 🔥 tamaño mínimo de cada casilla */
+        --tileMin: 150px; /* 170–190 si quieres más grande */
+        --tileTitle: clamp(12px, 1.05vw, 15px);
+        --tileNote: clamp(10px, 0.95vw, 12px);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Arial;
+        color: var(--ink);
+        background:
+          radial-gradient(1200px 600px at 10% 10%, #1c2b70 0%, transparent 55%),
+          radial-gradient(900px 500px at 85% 20%, #6a1b9a 0%, transparent 55%),
+          linear-gradient(180deg, var(--bg2), var(--bg));
+        min-height: 100vh;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(12px);
+        background: linear-gradient(
+          180deg,
+          rgba(5, 7, 13, 0.85),
+          rgba(5, 7, 13, 0.35)
+        );
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px;
+      }
+      .topbar .row {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .brand {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #3b82f6, #a855f7);
+        display: grid;
+        place-items: center;
+        font-weight: 1000;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 16px;
+      }
+      .brand .sub {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .btn {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ink);
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: 0.15s ease;
+        user-select: none;
+      }
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .btn:active {
+        transform: scale(0.99);
+      }
+      .btn.primary {
+        border-color: transparent;
+        background: linear-gradient(135deg, #3b82f6, #a855f7);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+      }
+      .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pill b {
+        color: var(--ink);
+      }
+
+      .layout {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 14px;
+        align-items: start;
+      }
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.06),
+          rgba(255, 255, 255, 0.03)
+        );
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panelHead {
+        padding: 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .panelHead h2 {
+        margin: 0;
+        font-size: 14px;
+      }
+      .panelBody {
+        padding: 14px;
+      }
+
+      /* ===== Board container ===== */
+      .boardFrame {
+        position: relative;
+        border-radius: var(--radius);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background:
+          radial-gradient(
+            800px 400px at 50% 0%,
+            rgba(255, 255, 255, 0.1),
+            transparent 60%
+          ),
+          rgba(0, 0, 0, 0.18);
+        overflow: hidden;
+        padding: 14px;
+        min-height: 420px;
+      }
+
+      /* ===== Parking scene (car parking) ===== */
+      .parkingScene {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.9;
+      }
+      .asphalt {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            900px 400px at 20% 30%,
+            rgba(255, 255, 255, 0.08),
+            transparent 60%
+          ),
+          radial-gradient(
+            900px 400px at 80% 70%,
+            rgba(255, 255, 255, 0.06),
+            transparent 60%
+          ),
+          linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.06),
+            rgba(255, 255, 255, 0.01)
+          );
+        opacity: 0.95;
+      }
+      .spots {
+        position: absolute;
+        left: 58%;
+        top: 58%;
+        width: 34%;
+        height: 28%;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(0, 0, 0, 0.14);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+      }
+      .spots::before {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border-radius: 14px;
+        background: repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.3) 0px,
+          rgba(255, 255, 255, 0.3) 10px,
+          rgba(255, 255, 255, 0) 10px,
+          rgba(255, 255, 255, 0) 26px
+        );
+        opacity: 0.6;
+      }
+      .parkCar {
+        position: absolute;
+        left: -25%;
+        top: 72%;
+        font-size: 52px;
+        opacity: 0.9;
+        filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.6));
+        animation: park 6.5s ease-in-out infinite;
+      }
+      .parkCarSmall {
+        position: absolute;
+        left: 110%;
+        top: 22%;
+        font-size: 34px;
+        opacity: 0.55;
+        filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.6));
+        animation: driveBy 10s linear infinite;
+      }
+      @keyframes park {
+        0% {
+          transform: translateX(0) translateY(0) rotate(0deg);
+          opacity: 0.85;
+        }
+        35% {
+          transform: translateX(78vw) translateY(0) rotate(0deg);
+          opacity: 0.85;
+        }
+        55% {
+          transform: translateX(78vw) translateY(-4vh) rotate(-90deg);
+          opacity: 0.95;
+        }
+        72% {
+          transform: translateX(73vw) translateY(-7vh) rotate(-90deg);
+          opacity: 0.98;
+        }
+        85% {
+          transform: translateX(73vw) translateY(-7vh) rotate(-90deg);
+          opacity: 0.35;
+        }
+        100% {
+          transform: translateX(73vw) translateY(-7vh) rotate(-90deg);
+          opacity: 0;
+        }
+      }
+      @keyframes driveBy {
+        0% {
+          transform: translateX(0) rotate(2deg);
+          opacity: 0.55;
+        }
+        100% {
+          transform: translateX(-140vw) rotate(-2deg);
+          opacity: 0.55;
+        }
+      }
+
+      /* ===== Board ===== */
+      .board {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(var(--tileMin), 1fr));
+      }
+
+      .tile {
+        aspect-ratio: 1 / 1.12;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.03)
+        );
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        transition: 0.15s ease;
+      }
+      .tile:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+      .tile .num {
+        position: absolute;
+        top: 8px;
+        left: 9px;
+        font-size: 12px;
+        color: rgba(234, 240, 255, 0.82);
+        font-weight: 1000;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+      .tile .tag {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 11px;
+        font-weight: 1000;
+        padding: 4px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.25);
+        letter-spacing: 0.2px;
+      }
+      .tag.E {
+        color: var(--E);
+      }
+      .tag.Ca {
+        color: var(--Ca);
+      }
+      .tag.Co {
+        color: var(--Co);
+      }
+      .tag.S {
+        color: var(--S);
+      }
+      .tag.R {
+        color: var(--R);
+      }
+      .tag.EV {
+        color: var(--EV);
+      }
+
+      .puckRow {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        top: 38px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        pointer-events: none;
+      }
+      .puck {
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.45);
+      }
+
+      .tile .emoji {
+        position: absolute;
+        left: 10px;
+        bottom: 58px;
+        font-size: 28px;
+        opacity: 0.95;
+        filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.35));
+      }
+
+      .tile .name {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        font-size: var(--tileTitle);
+        font-weight: 1000;
+        line-height: 1.08;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+        hyphens: auto;
+      }
+      .tile .note {
+        margin-top: 5px;
+        font-weight: 800;
+        color: rgba(234, 240, 255, 0.74);
+        font-size: var(--tileNote);
+        line-height: 1.05;
+
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .tile.active {
+        outline: 2px solid rgba(122, 162, 255, 0.7);
+        box-shadow:
+          0 0 0 6px rgba(122, 162, 255, 0.18),
+          0 18px 40px rgba(0, 0, 0, 0.35);
+      }
+
+      /* Right: players */
+      .playerCard {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.18);
+        border-radius: 16px;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .playerTop {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+      }
+      .playerName {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-weight: 1000;
+      }
+      .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+      }
+      .badgeTurn {
+        font-size: 11px;
+        font-weight: 1000;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(122, 162, 255, 0.5);
+        background: rgba(122, 162, 255, 0.12);
+        color: #cfe0ff;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 12px;
+        font-weight: 1000;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+      .dot.E {
+        background: var(--E);
+      }
+      .dot.Ca {
+        background: var(--Ca);
+      }
+      .dot.Co {
+        background: var(--Co);
+      }
+      .dot.S {
+        background: var(--S);
+      }
+      .dot.R {
+        background: var(--R); 
+      }
+      .dot.EV {
+         background: var(--EV);
+      }
+
+      /* Dice */
+      .diceArea {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .dice {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        font-weight: 1000;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.05)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+      }
+      .dice.roll {
+        animation: roll 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      @keyframes roll {
+        0% {
+          transform: rotate(0) scale(1);
+        }
+        40% {
+          transform: rotate(15deg) scale(1.06);
+        }
+        70% {
+          transform: rotate(-18deg) scale(1.02);
+        }
+        100% {
+          transform: rotate(0) scale(1);
+        }
+      }
+
+      /* Modal */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .overlay.show {
+        display: flex;
+      }
+      .modal {
+        width: min(760px, 100%);
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(10, 12, 22, 0.92);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+        overflow: hidden;
+      }
+      .modalHead {
+        padding: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+      .modalTitle {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-weight: 1000;
+      }
+      .badge {
+        font-size: 12px;
+        font-weight: 1000;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(0, 0, 0, 0.25);
+      }
+      .badge.E {
+        color: var(--E);
+      }
+      .badge.Ca {
+        color: var(--Ca);
+      }
+      .badge.Co {
+        color: var(--Co);
+      }
+      .badge.S {
+        color: var(--S);
+      }
+      .badge.R {
+        color: var(--R);
+      }
+      .badge.EV {
+        color: var(--EV);
+      }
+      .modalBody {
+        padding: 16px;
+      }
+      .prompt {
+        font-size: 18px;
+        font-weight: 1000;
+        margin: 0 0 10px;
+        line-height: 1.25;
+      }
+      .hint {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .follow {
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 12px;
+        border-radius: 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      textarea {
+        width: 100%;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ink);
+        padding: 12px;
+        outline: none;
+        resize: vertical;
+        min-height: 90px;
+        font-weight: 700;
+        line-height: 1.35;
+        margin-top: 10px;
+      }
+      .modalActions {
+        padding: 14px 16px 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      /* Report overlay */
+      .reportModal {
+        width: min(980px, 100%);
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(10, 12, 22, 0.96);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+        overflow: hidden;
+      }
+      .reportBody {
+        padding: 16px;
+      }
+      .reportGrid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .reportSummary {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+        padding: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .reportSummary b {
+        color: var(--ink);
+      }
+      .reportTableWrap {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        overflow: hidden;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      thead th {
+        text-align: left;
+        padding: 10px 10px;
+        background: rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(234, 240, 255, 0.92);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      tbody td {
+        padding: 10px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(234, 240, 255, 0.85);
+        vertical-align: top;
+        word-break: break-word;
+      }
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .typePill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(0, 0, 0, 0.25);
+        font-weight: 1000;
+      }
+      .typeDot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+      .typeDot.E {
+        background: var(--E);
+      }
+      .typeDot.Ca {
+        background: var(--Ca);
+      }
+      .typeDot.Co {
+        background: var(--Co);
+      }
+      .typeDot.S {
+        background: var(--S);
+      }
+      .typeDot.R {
+        background: var(--R);
+      }
+      .typeDot.EV {
+        background: var(--EV);
+      }
+
+      /* Intro list */
+      .steps {
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+      .steps li {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 16px;
+        padding: 10px 12px;
+        color: rgba(234, 240, 255, 0.86);
+        font-weight: 800;
+        line-height: 1.25;
+      }
+      .steps small {
+        display: block;
+        color: var(--muted);
+        font-weight: 700;
+        margin-top: 4px;
+      }
+
+      /* Toast */
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        z-index: 120;
+        padding: 12px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(10px);
+        color: rgba(234, 240, 255, 0.92);
+        font-weight: 1000;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+        max-width: 92vw;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        opacity: 0;
+        transition: 0.2s ease;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="topbar">
+      <div class="row">
+        <div class="brand">
+          <div class="logo">🅿️</div>
+          <div>
+            <h1>ESTACIONAMIENTO — Cupo Cero</h1>
+            <div class="sub">
+              Juego de investigación cualitativa • modo entrevista • evidencia
+              real
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn" onclick="openIntro()">Instrucciones</button>
+          <button class="btn" onclick="openReport()">Bitácora</button>
+          <button class="btn" onclick="finishGame()">Finalizar</button>
+          <button class="btn" onclick="window.print()">Imprimir</button>
+          <button class="btn" onclick="startGame()">Reiniciar</button>
+          <button class="btn primary" onclick="rollAndMove()">
+            Tirar y mover
+          </button>
+          <button class="btn" onclick="drawCardAuto()">Robar carta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <!-- LEFT -->
+      <section class="panel">
+        <div class="panelHead">
+          <h2>🎲 Tablero</h2>
+          <div class="diceArea">
+            <span class="pill">Jugador: <b id="activeName">—</b></span>
+            <div class="dice" id="diceBox">—</div>
+            <span class="pill">Casilla: <b id="activeTile">—</b></span>
+          </div>
+        </div>
+
+        <div class="panelBody">
+          <div class="boardFrame">
+            <div class="parkingScene">
+              <div class="asphalt"></div>
+              <div class="spots"></div>
+              <div class="parkCar">🚗</div>
+              <div class="parkCarSmall">🚙</div>
+            </div>
+
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT -->
+      <aside class="panel">
+        <div class="panelHead">
+          <h2>🧾 Jugadores + Evidencia</h2>
+          <span class="pill">Meta: <b id="goalText">3 por tipo</b></span>
+        </div>
+        <div class="panelBody">
+          <div class="pill" style="margin-bottom: 10px">
+            Totales: <b id="totalsText">E0 • Ca0 • Co0 • S0 • R0 • EV0</b>
+          </div>
+          <div id="playersBox"></div>
+
+          <div style="margin-top: 10px; color: var(--muted); font-size: 12px">
+            🔧 Casillas más grandes: sube <b>--tileMin</b> arriba (ej. 170px).
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Intro (instructions) -->
+    <div class="overlay" id="introOverlay" onclick="introOverlayClick(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modalHead">
+          <div class="modalTitle">
+            <span>📘</span>
+            <span>Cómo jugar (rápido y simple)</span>
+            <span class="badge" style="color: rgba(234, 240, 255, 0.92)"
+              >META: 3 por tipo</span
+            >
+          </div>
+          <button class="btn" onclick="closeIntro()">Cerrar</button>
+        </div>
+        <div class="modalBody">
+          <p class="hint" style="margin: 0">
+            Este juego simula entrevistas. La idea es que las respuestas sean
+            <b>reales y específicas</b> (lugar + hora + impacto).
+          </p>
+
+          <ul class="steps">
+            <li>
+              1) Tira y mueve 🎲
+              <small>Usa “Tirar y mover”. Caerás en una casilla.</small>
+            </li>
+            <li>
+              2) Roba carta 🃏
+              <small
+                >Usa “Robar carta” o toca una casilla. Te saldrá una
+                pregunta.</small
+              >
+            </li>
+            <li>
+              3) Responde y escribe ✍️
+              <small
+                >Escribe tu evidencia: qué pasó + dónde + cuándo +
+                impacto.</small
+              >
+            </li>
+            <li>
+              4) Marca evidencia ✅
+              <small
+                >“Marcar evidencia” guarda la respuesta en la bitácora
+                capturable.</small
+              >
+            </li>
+            <li>
+              5) Finaliza y exporta 📎
+              <small
+                >Al cumplir la meta (E/Ca/Co/S) abre el reporte: CSV/JSON/TXT o
+                “Bloc de notas”.</small
+              >
+            </li>
+          </ul>
+
+          <div class="follow" style="margin-top: 12px">
+            <b>Tip del moderador:</b> siempre repreguntar 1 vez: “¿Dónde? ¿Qué
+            hora? ¿Qué te afectó?”<br />
+            <b>Jugadores:</b> J1, J2, J3 (ya vienen listos).
+          </div>
+
+          <div
+            style="
+              margin-top: 12px;
+              display: flex;
+              gap: 10px;
+              align-items: center;
+              flex-wrap: wrap;
+            "
+          >
+            <label class="pill" style="cursor: pointer">
+              <input
+                id="dontShowAgain"
+                type="checkbox"
+                style="transform: scale(1.1); margin-right: 8px"
+              />
+              No mostrar de nuevo
+            </label>
+          </div>
+        </div>
+        <div class="modalActions">
+          <button class="btn" onclick="startGame()">Reiniciar jugadores</button>
+          <button class="btn primary" onclick="startFromIntro()">
+            Empezar 🚀
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal (card) -->
+    <div class="overlay" id="overlay" onclick="overlayClick(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modalHead">
+          <div class="modalTitle">
+            <span id="cardEmoji">🃏</span>
+            <span id="cardTitle">Carta</span>
+            <span class="badge" id="cardBadge">—</span>
+          </div>
+          <button class="btn" onclick="closeModal()">Cerrar</button>
+        </div>
+        <div class="modalBody">
+          <p class="prompt" id="cardPrompt">—</p>
+          <p class="hint" id="cardHint">—</p>
+          <div class="follow" id="cardFollow"><b>Repreguntas:</b> —</div>
+
+          <textarea
+            id="bitacora"
+            placeholder="Escribe aquí la evidencia (qué pasó + dónde + cuándo + impacto)..."
+          ></textarea>
+        </div>
+        <div class="modalActions">
+          <button class="btn" onclick="copyBitacora()">Copiar bitácora</button>
+          <button class="btn primary" onclick="awardEvidence()">
+            Marcar evidencia ✅
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal (report) -->
+    <div class="overlay" id="reportOverlay" onclick="reportOverlayClick(event)">
+      <div class="reportModal" onclick="event.stopPropagation()">
+        <div class="modalHead">
+          <div class="modalTitle">
+            <span>📎</span>
+            <span>Reporte final + Bitácora</span>
+            <span class="badge" style="color: rgba(234, 240, 255, 0.92)"
+              >EXPORTABLE</span
+            >
+          </div>
+          <button class="btn" onclick="closeReport()">Cerrar</button>
+        </div>
+
+        <div class="reportBody">
+          <div class="reportGrid">
+            <div class="reportSummary" id="reportSummary">—</div>
+
+            <div class="reportTableWrap">
+              <div
+                style="
+                  padding: 10px;
+                  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                  display: flex;
+                  gap: 10px;
+                  flex-wrap: wrap;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <div class="pill">Registros: <b id="logCount">0</b></div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                  <button class="btn" onclick="openNotepad()">
+                    Bloc de notas
+                  </button>
+                  <button class="btn" onclick="copyReport()">
+                    Copiar TODO
+                  </button>
+                  <button class="btn" onclick="downloadCSV()">
+                    Descargar CSV
+                  </button>
+                  <button class="btn" onclick="downloadJSON()">
+                    Descargar JSON
+                  </button>
+                  <button class="btn primary" onclick="downloadTXT()">
+                    Descargar TXT
+                  </button>
+                </div>
+              </div>
+
+              <div style="max-height: 55vh; overflow: auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Fecha/hora</th>
+                      <th>Jugador</th>
+                      <th>Casilla</th>
+                      <th>Tipo</th>
+                      <th>Pregunta</th>
+                      <th>Respuesta (bitácora)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="reportSummary" style="font-size: 12px">
+              Tip: Usa <b>CSV</b> para pegarlo fácil a Excel/Sheets y anexarlo
+              como evidencia.
+            </div>
+          </div>
+        </div>
+
+        <div class="modalActions">
+          <button class="btn" onclick="startGame()">Reiniciar sesión</button>
+          <button class="btn primary" onclick="closeReport()">Listo ✅</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal (bloc de notas) -->
+    <div
+      class="overlay"
+      id="notepadOverlay"
+      onclick="notepadOverlayClick(event)"
+    >
+      <div class="reportModal" onclick="event.stopPropagation()">
+        <div class="modalHead">
+          <div class="modalTitle">
+            <span>📝</span>
+            <span>Bloc de notas (todo el reporte)</span>
+            <span class="badge" style="color: rgba(234, 240, 255, 0.92)"
+              >COPIABLE</span
+            >
+          </div>
+          <button class="btn" onclick="closeNotepad()">Cerrar</button>
+        </div>
+
+        <div class="reportBody">
+          <div class="reportSummary" style="margin-bottom: 12px">
+            Texto listo para pegar en Bloc de notas. Si quieres archivo:
+            <b>Descargar TXT</b>.
+          </div>
+
+          <textarea id="notepadText" style="min-height: 55vh"></textarea>
+        </div>
+
+        <div class="modalActions">
+          <button class="btn" onclick="copyNotepad()">Copiar texto</button>
+          <button class="btn primary" onclick="downloadTXT()">
+            Descargar TXT
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      // ===== Board data =====
+      const tiles = [
+        T("E", "Inicio", "Llegas al campus", "🏁"),
+        T("Ca", "Acceso", "Entrada/salida", "🚧"),
+        T("Co", "Bloqueo", "Impacto inmediato", "⏳"),
+        T("E", "Zona A", "Cajones llenos", "🅿️"),
+        T("S", "Idea rápida", "Solución low-cost", "💡"),
+        T("R", "Rol", "Cambia perspectiva", "🎭"),
+        T("E", "Zona B", "Vuelta extra", "🔁"),
+        T("Ca", "Señalización", "¿Se entiende?", "🪧"),
+        T("Co", "Tarde", "Efecto académico", "📚"),
+        T("EV", "Evento", "Llueve/examen", "🌧️"),
+        T("E", "Drop-off", "Subida/bajada", "🚶"),
+        T("Ca", "Hábitos", "Doble fila", "😬"),
+        T("Co", "Conflicto", "Roces", "💥"),
+        T("S", "Idea fuerte", "Estructural", "🏗️"),
+        T("R", "Seguridad", "Operación", "🛡️"),
+        T("E", "Zona C", "Lejos del salón", "👟"),
+        T("Ca", "Reglas", "Permisos", "📜"),
+        T("Co", "Riesgo vial", "Peatones", "⚠️"),
+        T("S", "Piloto", "2 semanas", "🧪"),
+        T("EV", "Cierre", "Zona cerrada", "🚫"),
+        T("E", "Hora pico", "8:00/13:00", "🕗"),
+        T("Ca", "Infra", "Cupo real", "📏"),
+        T("Co", "Estrés", "Bienestar", "🧠"),
+        T("S", "Comunicación", "Mapa/avisos", "🗺️"),
+        T("R", "Docente", "Otro perfil", "👩‍🏫"),
+        T("E", "Visitantes", "Desorientación", "🧭"),
+        T("Ca", "Flujo", "Embudos", "🌀"),
+        T("Co", "Experiencia", "Percepción campus", "🌆"),
+        T("S", "Mixta", "Corto+largo", "🧩"),
+        T("E", "Meta", "Reporte final", "✅"),
+      ];
+      function T(t, name, note, emoji) {
+        return { t, name, note, emoji };
+      }
+      const typeLabel = {
+        E: "Experiencia",
+        Ca: "Causa",
+        Co: "Consecuencia",
+        S: "Solución",
+        R: "Rol",
+        EV: "Evento",
+      };
+
+      // ===== Goals =====
+      const GOAL = { E: 3, Ca: 3, Co: 3, S: 3, R: 3, EC: 3 };
+
+      // ===== Decks =====
+      const decks = {
+        E: [
+          C(
+            "E",
+            "🎯 Describe una experiencia REAL reciente buscando estacionamiento.",
+            "Debe ser algo que te haya pasado a ti, no algo que 'suele pasar'.",
+            "¿Qué día fue? ¿A qué hora? ¿En qué zona exacta? ¿Cuánto tiempo perdiste?",
+          ),
+          C(
+            "E",
+            "😵 Piensa en la experiencia más frustrante que recuerdes.",
+            "Entre más específica sea, más valor tiene como evidencia.",
+            "¿Qué estabas intentando hacer? ¿Qué decisión tomaste al final?",
+          ),
+          C(
+            "E",
+            "🔁 Explica tu recorrido típico cuando no encuentras lugar.",
+            "Cuéntalo como si fuera un mapa narrado.",
+            "¿Por dónde entras? ¿Cuántas vueltas das? ¿Dónde decides rendirte?",
+          ),
+          C(
+            "E",
+            "🚶 Relata una situación donde peatones y autos casi chocan.",
+            "No tiene que haber accidente, basta con riesgo real.",
+            "¿Quién estaba involucrado? ¿Qué maniobra fue peligrosa?",
+          ),
+        ],
+        Ca: [
+          C(
+            "Ca",
+            "🧩  Identifica UNA causa principal del problema y justifícala con un ejemplo.",
+            "Evita respuestas generales como 'falta de organización'.",
+            "¿Qué acción concreta genera el problema? ¿Quién la realiza?",
+          ),
+          C(
+            "Ca",
+            "😬 Analiza la doble fila: ¿por qué ocurre realmente?",
+            "No solo digas que está mal, explica el motivo.",
+            "¿Es prisa? ¿comodidad? ¿falta de control? ¿en qué zonas pasa más?",
+          ),
+          C(
+            "Ca",
+            "🪧 Evalúa la señalización actual del estacionamiento.",
+            "Piensa como alguien que no conoce el campus.",
+            "¿Qué información no está clara? ¿Dónde debería estar visible?",
+          ),
+          C(
+            "Ca",
+            "🕗 Cómo influyen los horarios de clases en el colapso?",
+            "Relaciona tiempos académicos con flujo vehicular.",
+            "¿Qué bloque horario es el peor y por qué?",
+          ),
+        ],
+        Co: [
+          C(
+            "Co",
+            "📚 ¿Cómo afecta el estacionamiento a tu desempeño académico?",
+            "Busca una consecuencia concreta, no emocional solamente.",
+            "¿Has llegado tarde? ¿Te has ido antes? ¿Perdiste algo evaluable?",
+          ),
+          C(
+            "Co",
+            "🧠 Describe el impacto emocional del problema.",
+            "Las emociones también son datos.",
+            "¿Estrés, enojo, ansiedad? ¿Te afecta antes de entrar a clase?",
+          ),
+          C(
+            "Co",
+            "⚠️ Cuenta una situación de riesgo vial real.",
+            "Evita 'podría pasar', enfócate en algo que ya pasó.",
+            "¿Qué maniobra fue peligrosa? ¿Por qué ocurrió?",
+          ),
+          C(
+            "Co",
+            "💥 Narra un conflicto entre personas por un cajón.",
+            "Conflictos sociales también cuentan como impacto.",
+            "¿Hubo discusión? ¿Miradas? ¿claxon? ¿qué lo provocó?",
+          ),
+        ],
+        S: [
+          C(
+            "S",
+            "💡 Solución barata (0–$) para pilotear en 2 semanas.",
+            "Mínimo viable.",
+            "¿Qué cambia? ¿cómo mides mejora?",
+          ),
+          C(
+            "S",
+            "🏗️ Imagina una solución de infraestructura.",
+            "Piensa en costo vs beneficio.",
+            "¿Qué problema ataca? ¿A quién ayuda más?",
+          ),
+          C(
+            "S",
+            "🗺️ ¿Qué información falta para que la gente se estacione mejor?",
+            "A veces el problema no es espacio, sino desinformación.",
+            "¿Mapa? ¿pantalla? ¿señales temporales?",
+          ),
+          C(
+            "S",
+            "🛡️  Diseña un protocolo claro para horas pico.",
+            "Paso por paso, sin generalidades.",
+            "¿Quién actúa? ¿Dónde se coloca? ¿qué decide?",
+          ),
+        ],
+        R: [
+          C(
+            "R",
+            "🎭 Perspectiva: eres SEGURIDAD. ¿Qué es lo más difícil de controlar?",
+            "Habla desde la limitación, no desde la crítica.",
+            "¿Qué reglas no puedes hacer cumplir? ¿por qué?",
+          ),
+          C(
+            "R",
+            "🎭 Eres un PEATÓN. ¿Dónde te sientes más vulnerable?",
+            "Piensa en cruces, banquetas y visibilidad.",
+            "¿Qué auto te pone más en riesgo?",
+          ),
+          C(
+            "R",
+            "🎭  Eres DOCENTE. ¿Cómo afecta esto a tu clase?",
+            "Piensa en puntualidad y dinámica.",
+            "¿Qué medida apoyarías aunque incomode?",
+          ),
+          C(
+            "R",
+            "🎭  Eres VISITANTE. ¿Qué fue lo más confuso?",
+            "Actúa como si fuera tu primera vez.",
+            "¿Qué señal o info te habría ahorrado tiempo?",
+          ),
+        ],
+        EV: [
+          C(
+            "EV",
+            "🌧️ Evento: Llueve y hay examen. Describe cómo cambia el flujo.",
+            "Piensa en autos, peatones y estrés.",
+            "¿Qué medida temporal aplicarías hoy mismo?",
+          ),
+          C(
+            "EV",
+            "🚫 Evento: Se cierra una zona del estacionamiento.",
+            "Analiza redistribución del problema.",
+            "¿Dónde se forma el nuevo embudo?",
+          ),
+          C(
+            "EV",
+            "🎉 Evento: Hay evento masivo en campus.",
+            "Separar flujos es clave.",
+            "¿Qué rutas asignarías? ¿Dónde mandarías visitantes?",
+          ),
+          C(
+            "EV",
+            "📜 Evento: Se agregan cajones reservados.",
+            "Evalúa percepción de justicia.",
+            "¿Genera más conflicto? ¿cómo lo comunicarías?",
+          ),
+        ],
+      };
+      function C(type, prompt, hint, followups) {
+        return { type, prompt, hint, followups };
+      }
+
+      // ===== State =====
+      let players = [];
+      let active = 0;
+      let currentCard = null;
+      let currentTileIndex = 0;
+      const totals = { E: 0, Ca: 0, Co: 0, S: 0 };
+
+      // ===== Bitácora capturable =====
+      let bitacoraLog = [];
+
+      const colors = [
+        "#60a5fa",
+        "#34d399",
+        "#fbbf24",
+        "#a78bfa",
+        "#fb7185",
+        "#22c55e",
+      ];
+      const avatars = ["🚗", "🚙", "🚕", "🚌", "🚓", "🚘"];
+
+      // ===== Render =====
+      function renderBoard() {
+        const board = document.getElementById("board");
+        board.innerHTML = "";
+        tiles.forEach((t, idx) => {
+          const div = document.createElement("div");
+          div.className = "tile";
+          div.innerHTML = `
+        <div class="num">${idx + 1}</div>
+        <div class="tag ${t.t}">${t.t}</div>
+        <div class="puckRow" id="pucks-${idx}"></div>
+        <div class="emoji">${t.emoji}</div>
+        <div class="name">${t.name}<div class="note">${t.note}</div></div>
+      `;
+          div.addEventListener("click", () => {
+            if (!players.length) return toast("Primero presiona Empezar 😭");
+            openCard(drawFromTile(idx), idx);
+          });
+          board.appendChild(div);
+        });
+
+        renderPucks();
+        renderActiveInfo();
+      }
+
+      function renderPucks() {
+        tiles.forEach((_, idx) => {
+          const row = document.getElementById(`pucks-${idx}`);
+          if (row) row.innerHTML = "";
+        });
+
+        players.forEach((p) => {
+          const row = document.getElementById(`pucks-${p.pos}`);
+          if (!row) return;
+          const puck = document.createElement("div");
+          puck.className = "puck";
+          puck.style.background = p.color;
+          row.appendChild(puck);
+        });
+
+        const all = Array.from(document.querySelectorAll(".tile"));
+        all.forEach((x) => x.classList.remove("active"));
+        if (players[active]) {
+          all[players[active].pos]?.classList.add("active");
+        }
+      }
+
+      function renderPlayers() {
+        const box = document.getElementById("playersBox");
+        box.innerHTML = "";
+        players.forEach((p, i) => {
+          const div = document.createElement("div");
+          div.className = "playerCard";
+          div.innerHTML = `
+        <div class="playerTop">
+          <div class="playerName">
+            <div class="avatar" style="background: linear-gradient(135deg, ${p.color}, rgba(255,255,255,.08))">${p.avatar}</div>
+            <div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span>${p.name}</span>
+                ${i === active ? `<span class="badgeTurn">TU TURNO</span>` : ``}
+              </div>
+              <div style="color:var(--muted);font-size:12px;margin-top:2px">
+                Posición ${p.pos + 1} • ${tiles[p.pos].name} (${tiles[p.pos].t})
+              </div>
+            </div>
+          </div>
+          <button class="btn" onclick="setActive(${i})">Jugar como</button>
+        </div>
+        <div class="chips">
+          <span class="chip"><span class="dot E"></span> E: <b>${p.ev.E}</b></span>
+          <span class="chip"><span class="dot Ca"></span> Ca: <b>${p.ev.Ca}</b></span>
+          <span class="chip"><span class="dot Co"></span> Co: <b>${p.ev.Co}</b></span>
+          <span class="chip"><span class="dot S"></span> S: <b>${p.ev.S}</b></span>
+          <span class="chip"><span class="dot S"></span> R: <b>${p.ev.R}</b></span>
+          <span class="chip"><span class="dot S"></span> EV: <b>${p.ev.EV}</b></span>
+        </div>
+      `;
+          box.appendChild(div);
+        });
+        renderTotals();
+        renderActiveInfo();
+      }
+
+      function renderTotals() {
+        document.getElementById("totalsText").textContent =
+          `E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`;
+      }
+
+      function renderActiveInfo() {
+        const p = players[active];
+        document.getElementById("activeName").textContent = p ? p.name : "—";
+        document.getElementById("activeTile").textContent = p
+          ? `${p.pos + 1} (${tiles[p.pos].name})`
+          : "—";
+      }
+
+      // ===== Game =====
+      function startGame() {
+        players = [];
+        active = 0;
+        totals.E = totals.Ca = totals.Co = totals.S = totals.R = totals.EV = 0;
+        bitacoraLog = [];
+
+        const names = ["J1", "J2", "J3"];
+        for (let i = 0; i < 3; i++) {
+          players.push({
+            name: names[i],
+            pos: 0,
+            color: colors[i],
+            avatar: avatars[i],
+            ev: { E: 0, Ca: 0, Co: 0, S: 0, R:0, EV: 0 },
+          });
+        }
+
+        renderBoard();
+        renderPlayers();
+        toast("Listo: J1, J2 y J3 ✅");
+      }
+
+      function setActive(i) {
+        active = i;
+        renderPucks();
+        renderPlayers();
+      }
+
+      function rollAndMove() {
+        if (!players.length) return toast("Primero presiona Empezar 🚀");
+
+        const d = rand(1, 6);
+        const dice = document.getElementById("diceBox");
+        dice.classList.remove("roll");
+        void dice.offsetWidth;
+        dice.classList.add("roll");
+        dice.textContent = d;
+
+        const p = players[active];
+        p.pos = Math.min(tiles.length - 1, p.pos + d);
+
+        renderPucks();
+        renderPlayers();
+
+        if (p.pos === tiles.length - 1) {
+          toast("Llegaste a META ✅ Abriendo reporte final...");
+          setTimeout(() => openReport(true), 250);
+          return;
+        }
+
+        toast(
+          `Caiste en ${tiles[p.pos].name} (${tiles[p.pos].t}). Roba carta 👀`,
+        );
+      }
+
+      function drawFromTile(idx) {
+        const type = tiles[idx].t === "EV" ? "EV" : tiles[idx].t;
+        const deck = decks[type] || decks.E;
+        return deck[rand(0, deck.length - 1)];
+      }
+
+      function drawCardAuto() {
+        if (!players.length) return toast("Primero presiona Empezar 🚀");
+        const p = players[active];
+        openCard(drawFromTile(p.pos), p.pos);
+      }
+
+      // ===== Intro =====
+      function openIntro() {
+        document.getElementById("introOverlay").classList.add("show");
+      }
+      function closeIntro() {
+        document.getElementById("introOverlay").classList.remove("show");
+      }
+      function introOverlayClick(e) {
+        if (e.target.id === "introOverlay") closeIntro();
+      }
+
+      function startFromIntro() {
+        const cb = document.getElementById("dontShowAgain");
+        if (cb?.checked) localStorage.setItem("cc_noshow_intro", "1");
+        closeIntro();
+
+        // Si no hay jugadores, iniciamos el proceso de red
+        if (!players.length) {
+          joinGame();
+        }
+        toast("Conectando al servidor... 🚀");
+      }
+      // ===== Modal (card) =====
+      function openCard(card, tileIdx) {
+        currentCard = card;
+        currentTileIndex = tileIdx ?? (players[active]?.pos || 0);
+
+        const badge = document.getElementById("cardBadge");
+        badge.className = "badge " + card.type;
+        badge.textContent = `${card.type} — ${typeLabel[card.type] || card.type}`;
+
+        document.getElementById("cardEmoji").textContent = emojiForType(
+          card.type,
+        );
+        document.getElementById("cardTitle").textContent =
+          `${players[active].name} • Turno`;
+        document.getElementById("cardPrompt").textContent = card.prompt;
+        document.getElementById("cardHint").textContent = card.hint;
+        document.getElementById("cardFollow").innerHTML =
+          `<b>Repreguntas:</b> ${card.followups}`;
+
+        document.getElementById("bitacora").value = "";
+        document.getElementById("overlay").classList.add("show");
+      }
+
+      function closeModal() {
+        document.getElementById("overlay").classList.remove("show");
+      }
+      function overlayClick(e) {
+        if (e.target.id === "overlay") closeModal();
+      }
+
+      function awardEvidence() {
+        if (!currentCard) return toast("No hay carta activa 🤨");
+
+        const p = players[active];
+        const t = currentCard.type;
+        const text = (document.getElementById("bitacora").value || "").trim();
+
+        if (["E", "Ca", "Co", "S", "R", "EV" ].includes(t) && text.length < 15) {
+          return toast(
+            "Escribe un poquito más (mín 15 chars) para que cuente 🙏",
+          );
+        }
+
+        logEntry({
+          player: p.name,
+          tileIndex: currentTileIndex,
+          tileName: tiles[currentTileIndex]?.name || "-",
+          type: t,
+          prompt: currentCard.prompt,
+          answer: text || "(sin respuesta escrita)",
+          followups: currentCard.followups,
+        });
+
+        if (["E", "Ca", "Co", "S", "R", "EV"].includes(t)) {
+          p.ev[t] += 1;
+          totals[t] += 1;
+          toast(`Evidencia ${t} registrada ✅`);
+        } else if (t === "EV") {
+          const r = Math.random();
+          if (r < 0.5) {
+            p.pos = Math.max(0, p.pos - 2);
+            toast("Evento: caos → retrocedes 2 😭");
+          } else {
+            p.pos = Math.min(tiles.length - 1, p.pos + 2);
+            toast("Evento: flujo raro → avanzas 2 😈");
+          }
+        } else {
+          toast("Rol aplicado 🎭 (si tuvo datos, ya quedó en bitácora)");
+        }
+
+        closeModal();
+        currentCard = null;
+
+        active = (active + 1) % players.length;
+        renderPucks();
+        renderPlayers();
+
+        if (checkGoalMet()) {
+          toast("Meta lograda ✅ Abriendo reporte final...");
+          setTimeout(() => {
+            openReport(true);
+            // Si quieres auto-descarga del TXT al terminar, descomenta:
+            // downloadTXT();
+          }, 350);
+        }
+      }
+
+      function copyBitacora() {
+        const txt = `[${players[active].name}] Carta ${currentCard?.type || "-"} (${typeLabel[currentCard?.type] || "-"})
+Casilla: ${currentTileIndex + 1} (${tiles[currentTileIndex]?.name || "-"})
+Pregunta: ${currentCard?.prompt || "-"}
+Respuesta:
+${document.getElementById("bitacora").value}
+---`;
+        navigator.clipboard
+          .writeText(txt)
+          .then(() => toast("Bitácora copiada ✅"))
+          .catch(() => toast("No se pudo copiar 😭"));
+      }
+
+      // ===== Bitácora log + goal =====
+      function nowStamp() {
+        try {
+          return new Date().toLocaleString("es-MX", { hour12: false });
+        } catch {
+          return new Date().toISOString();
+        }
+      }
+
+      function logEntry({
+        player,
+        tileIndex,
+        tileName,
+        type,
+        prompt,
+        answer,
+        followups,
+      }) {
+        bitacoraLog.push({
+          id: bitacoraLog.length + 1,
+          timestamp: nowStamp(),
+          player,
+          tileNo: tileIndex + 1,
+          tileName,
+          type,
+          prompt,
+          answer,
+          followups,
+        });
+      }
+
+      function checkGoalMet() {
+        return (
+          totals.E >= GOAL.E &&
+          totals.Ca >= GOAL.Ca &&
+          totals.Co >= GOAL.Co &&
+          totals.S >= GOAL.S &&
+          totals.R >= GOAL.R &&
+          totals.EV >= GOAL.EV
+        );
+      }
+
+      // ===== Report modal =====
+      function openReport(isAuto = false) {
+        if (!players.length) return toast("Primero presiona Empezar 🚀");
+        buildReport();
+        document.getElementById("reportOverlay").classList.add("show");
+        if (isAuto) toast("Reporte listo ✅ Descarga CSV/JSON/TXT o Bloc");
+      }
+      function closeReport() {
+        document.getElementById("reportOverlay").classList.remove("show");
+      }
+      function reportOverlayClick(e) {
+        if (e.target.id === "reportOverlay") closeReport();
+      }
+
+      function buildReport() {
+        document.getElementById("logCount").textContent = bitacoraLog.length;
+
+        const perPlayer = players.map((p) => ({
+          name: p.name,
+          E: p.ev.E,
+          Ca: p.ev.Ca,
+          Co: p.ev.Co,
+          S: p.ev.S,
+          R: p.ev.R,
+          EV: p.ev.EV,
+        }));
+
+        const goalStatus = `Meta global: E${totals.E}/${GOAL.E}, Ca${totals.Ca}/${GOAL.Ca}, Co${totals.Co}/${GOAL.Co}, S${totals.S}/${GOAL.S}, R${totals.R}/${GOAL.R}, EV${totals.EV}/${GOAL.EV}`;
+
+        const summaryLines = [
+          `<b>Totales globales:</b> E${totals.E} • Ca${totals.Ca} • Co${totals.Co} • S${totals.S} • R${totals.R} • EV${totals.EV}`,
+          `<b>${goalStatus}</b>`,
+          `<b>Jugadores:</b> ${perPlayer.map((x) => `${x.name}(E${x.E},Ca${x.Ca},Co${x.Co},S${x.S},R${x.R},EV${x.EV})`).join(" • ")}`,
+          `<b>Registros capturados:</b> ${bitacoraLog.length}`,
+          `<b>Tip:</b> CSV = lo más fácil para anexar al entregable.`,
+        ];
+        document.getElementById("reportSummary").innerHTML =
+          summaryLines.join("<br>");
+
+        const tb = document.getElementById("reportTableBody");
+        tb.innerHTML = "";
+        bitacoraLog.forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+        <td>${row.id}</td>
+        <td>${escapeHtml(row.timestamp)}</td>
+        <td><b>${escapeHtml(row.player)}</b></td>
+        <td>${row.tileNo} — ${escapeHtml(row.tileName)}</td>
+        <td>
+          <span class="typePill">
+            <span class="typeDot ${row.type}"></span>
+            ${escapeHtml(row.type)}
+          </span>
+        </td>
+        <td>${escapeHtml(row.prompt)}</td>
+        <td>${escapeHtml(row.answer)}</td>
+      `;
+          tb.appendChild(tr);
+        });
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(
+          /[&<>"']/g,
+          (m) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#039;",
+            })[m],
+        );
+      }
+
+      // ===== Export helpers =====
+      function downloadFile(
+        filename,
+        content,
+        mime = "text/plain;charset=utf-8",
+      ) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 800);
+      }
+
+      function toCSV(rows) {
+        const header = [
+          "id",
+          "timestamp",
+          "player",
+          "tileNo",
+          "tileName",
+          "type",
+          "prompt",
+          "answer",
+        ].join(",");
+        const esc = (v) => {
+          const s = String(v ?? "");
+          const needs = /[",\n]/.test(s);
+          const q = s.replace(/"/g, '""');
+          return needs ? `"${q}"` : q;
+        };
+        const lines = rows.map((r) =>
+          [
+            r.id,
+            r.timestamp,
+            r.player,
+            r.tileNo,
+            r.tileName,
+            r.type,
+            r.prompt,
+            r.answer,
+          ]
+            .map(esc)
+            .join(","),
+        );
+        return [header, ...lines].join("\n");
+      }
+
+      function downloadCSV() {
+        if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
+        downloadFile(
+          "bitacora-estacionamiento-cupo-cero.csv",
+          toCSV(bitacoraLog),
+          "text/csv;charset=utf-8",
+        );
+      }
+
+      function downloadJSON() {
+        if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
+        downloadFile(
+          "bitacora-estacionamiento-cupo-cero.json",
+          JSON.stringify(bitacoraLog, null, 2),
+          "application/json;charset=utf-8",
+        );
+      }
+
+      function buildTXTString() {
+        const lines = [];
+        lines.push("ESTACIONAMIENTO — Cupo Cero | Bitácora (export)");
+        lines.push(
+          `Totales: E${totals.E} Ca${totals.Ca} Co${totals.Co} S${totals.S} R${totals.R} EV${totals.EV}`,
+        );
+        lines.push(`Meta: E${GOAL.E} Ca${GOAL.Ca} Co${GOAL.Co} S${GOAL.S} R${GOAL.R} EV${GOAL.EV}`);
+        lines.push(`Registros: ${bitacoraLog.length}`);
+        lines.push("--------------------------------------------------");
+        bitacoraLog.forEach((r) => {
+          lines.push(
+            `#${r.id} | ${r.timestamp} | ${r.player} | Casilla ${r.tileNo} (${r.tileName}) | ${r.type}`,
+          );
+          lines.push(`Pregunta: ${r.prompt}`);
+          lines.push(`Respuesta: ${r.answer}`);
+          lines.push("--------------------------------------------------");
+        });
+        return lines.join("\n");
+      }
+
+      function downloadTXT() {
+        if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
+        downloadFile(
+          "bitacora-estacionamiento-cupo-cero.txt",
+          buildTXTString(),
+        );
+      }
+
+      function copyReport() {
+        if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
+        navigator.clipboard
+          .writeText(buildTXTString())
+          .then(() => toast("Reporte copiado ✅"))
+          .catch(() => toast("No se pudo copiar 😭"));
+      }
+
+      function finishGame() {
+        if (!players.length) return toast("Primero presiona Empezar 🚀");
+        toast("Cerrando sesión… abriendo reporte ✅");
+        openReport(true);
+        // Si quieres auto-descargar TXT al finalizar, descomenta:
+        // setTimeout(()=> downloadTXT(), 250);
+      }
+
+      // ===== Notepad modal =====
+      function openNotepad() {
+        if (!bitacoraLog.length) return toast("No hay registros todavía 😅");
+        document.getElementById("notepadText").value = buildTXTString();
+        document.getElementById("notepadOverlay").classList.add("show");
+      }
+      function closeNotepad() {
+        document.getElementById("notepadOverlay").classList.remove("show");
+      }
+      function notepadOverlayClick(e) {
+        if (e.target.id === "notepadOverlay") closeNotepad();
+      }
+      function copyNotepad() {
+        const t = document.getElementById("notepadText").value || "";
+        navigator.clipboard
+          .writeText(t)
+          .then(() => toast("Texto copiado ✅"))
+          .catch(() => toast("No se pudo copiar 😭"));
+      }
+
+      // ===== Helpers =====
+      function emojiForType(t) {
+        return (
+          { E: "🎯", Ca: "🧩", Co: "💥", S: "💡", R: "🎭", EV: "🌪️" }[t] || "🃏"
+        );
+      }
+      function rand(a, b) {
+        return Math.floor(Math.random() * (b - a + 1)) + a;
+      }
+
+      let toastTimer = null;
+      function toast(msg) {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.style.opacity = "1";
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => (el.style.opacity = "0"), 1600);
+      }
+
+      // boot: render tablero vacío + mostrar intro (si no se desactivó)
+      renderBoard();
+      renderPlayers();
+
+      (function () {
+        const noShow = localStorage.getItem("cc_noshow_intro") === "1";
+        if (!noShow) openIntro();
+        else toast("Listo. Usa 'Reiniciar' si quieres iniciar jugadores ✅");
+      })();
+
+      // Multiplayer
+
+      // Configuración de Red
+      const socket = io("https://videojuegoestacionamiento-production.up.railway.app/"); 
+      let roomCode = "";
+      let myPlayerName = "";
+
+      // Función para unirse
+      function joinGame() {
+        // Pedimos los datos al usuario
+        const room = prompt("Ingresa el CÓDIGO DE SALA");
+        const name = prompt("Tu NOMBRE de jugador:");
+
+        if (room && name) {
+          roomCode = room.trim().toLowerCase();
+          myPlayerName = name.trim();
+
+          // Enviamos el evento al servidor
+          socket.emit("join-room", {
+            roomCode: roomCode,
+            playerName: myPlayerName,
+          });
+
+          // Feedback visual en la UI
+          document.querySelector(".brand .sub").innerHTML =
+            `SALA: <b>${roomCode.toUpperCase()}</b> | Jugando como: <b>${myPlayerName}</b>`;
+        } else {
+          alert("Se requiere sala y nombre para jugar en tiempo real.");
+          openIntro(); // Reabrir si cancela
+        }
+      }
+
+      // Escuchar actualizaciones del servidor
+      socket.on("update-state", (state) => {
+        console.log("Nuevo estado recibido:", state);
+
+        // Sincronizar variables locales con el servidor
+        players = state.players;
+        active = state.activePlayerIndex;
+        Object.assign(totals, state.totals);
+        bitacoraLog = state.bitacoraLog;
+
+        // Forzar redibujado de la UI
+        renderBoard();
+        renderPlayers();
+        renderTotals();
+      });
+
+      socket.on("player-moved", ({ activePlayerIndex, newPos, diceValue }) => {
+        const dice = document.getElementById("diceBox");
+        dice.textContent = diceValue;
+        players[activePlayerIndex].pos = newPos;
+        renderPucks();
+        toast(
+          `${players[activePlayerIndex].name} se movió a la casilla ${newPos + 1}`,
+        );
+      });
+
+      // Reemplazar la función awardEvidence original
+      function awardEvidence() {
+        const text = (document.getElementById("bitacora").value || "").trim();
+        if (text.length < 15) return toast("Escribe más evidencia...");
+
+        const p = players[active];
+        socket.emit("submit-evidence", {
+          roomCode,
+          evidenceData: {
+            type: currentCard.type,
+            answer: text,
+            tileName: tiles[currentTileIndex].name,
+            prompt: currentCard.prompt,
+          },
+        });
+        closeModal();
+      }
+
+      // Reemplazar rollAndMove
+      function rollAndMove() {
+        if (players[active].name !== myPlayerName)
+          return toast("No es tu turno");
+        const d = Math.floor(Math.random() * 6) + 1;
+        socket.emit("move-player", { roomCode, diceValue: d });
+      }
+    </script>
+  </body>
+</html>
